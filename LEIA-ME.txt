@@ -1,0 +1,16 @@
+ACOMPANHAMENTO - instalação
+
+1. Envie estes 4 arquivos para a MESMA pasta de uma hospedagem privada
+   (por exemplo, GitHub Pages em repositório privado, ou Netlify Drop):
+     - index.html
+     - manifest.json
+     - icon-192.png
+     - icon-512.png
+
+2. Abra o endereço no Chrome do Android.
+
+3. Menu (três pontos) > "Adicionar à tela inicial" (ou "Instalar app").
+   O ícone "Acompanhamento" aparece na tela inicial.
+
+Os dados ficam só neste celular/navegador. Exporte uma cópia (Mais > Dados e cópias)
+com frequência e guarde fora do aparelho. Se limpar os dados do Chrome, os registros somem.

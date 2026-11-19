@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1F3864">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="Acompanhamento">
+<meta name="color-scheme" content="light dark">
+<title>Acompanhamento</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  /* Paleta: tons frios e neutros para registro e análise. Vermelho fica só para erro e exclusão.
+     Cores de dados são Okabe-Ito (seguras para daltonismo) e não usam verde/vermelho como "certo/errado". */
+  :root{
+    --bg:#f5f5f2; --card:#ffffff; --ink:#1c1c1e; --mute:#5f5f66; --line:#d6d6cf;
+    --acc:#1F3864; --acc-soft:#e4eaf6; --err:#b3261e;
+    --c-resisti:#00796B; --c-nao:#A8577F; --c-sono:#0072B2; --c-energia:#B9770E; --c-humor:#6A5ACD;
+    --toast:#2b2b30;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#121214; --card:#1e1e22; --ink:#ededed; --mute:#a3a3ab; --line:#3a3a41;
+      --acc:#9bb7ea; --acc-soft:#26304a; --err:#ff8a80;
+      --c-resisti:#4DB6A4; --c-nao:#E0A3C8; --c-sono:#56A9E0; --c-energia:#F0B54A; --c-humor:#A99BE6;
+      --toast:#e9e9ec;
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;min-height:100%}
+  body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.45;
+       padding-bottom:calc(84px + env(safe-area-inset-bottom));-webkit-text-size-adjust:100%}
+  :focus-visible{outline:3px solid var(--acc);outline-offset:2px;border-radius:6px}
+  button{font-family:inherit}
+
+  .top{position:sticky;top:0;z-index:5;background:var(--bg);padding:max(12px,env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
+  .top-in{max-width:620px;margin:0 auto}
+  .top h1{margin:0;font-size:clamp(17px,4.6vw,20px)}
+  .top .sub{color:var(--mute);font-size:14px;margin-top:2px}
+
+  main{padding:16px;max-width:620px;margin:0 auto}
+  .screen{display:none}.screen.on{display:block}
+  h2{font-size:17px;margin:8px 0 10px}
+  .hint{color:var(--mute);font-size:15px;margin:0 0 14px}
+  .group{margin:0 0 20px}
+  .lbl{display:block;font-size:15px;color:var(--mute);margin:0 0 8px;font-weight:bold}
+  .lbl .val{color:var(--acc);margin-left:6px;font-weight:bold}
+  input[type=text],input[type=number],input[type=date],input[type=datetime-local],textarea{
+    width:100%;min-height:48px;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-family:inherit;appearance:none}
+  textarea{min-height:84px;resize:vertical}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{padding:10px 14px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);font-size:15px;min-height:44px;cursor:pointer;text-align:left}
+  .chip[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#fff}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .seg button{padding:14px 10px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);font-size:16px;font-weight:bold;min-height:56px;cursor:pointer}
+  .seg button[aria-pressed=true]{border:2px solid var(--acc);background:var(--acc-soft);color:var(--acc)}
+  input[type=range]{width:100%;accent-color:var(--acc);height:40px;margin:0}
+  .scale{display:flex;justify-content:space-between;font-size:12px;color:var(--mute);margin-top:2px}
+  .toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--line);
+          border-radius:14px;background:var(--card);margin:8px 0;min-height:52px;cursor:pointer;font-size:16px}
+  .toggle input{width:24px;height:24px;accent-color:var(--acc);flex:none}
+  details{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:12px 14px;margin:6px 0 16px}
+  summary{font-weight:bold;cursor:pointer;color:var(--acc);min-height:40px;display:flex;align-items:center}
+  details[open] summary{margin-bottom:12px}
+
+  .btn{display:block;width:100%;padding:15px;font-size:17px;font-weight:bold;border:0;border-radius:14px;background:var(--acc);color:#fff;min-height:54px;margin-top:10px;cursor:pointer;text-align:center}
+  .btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+  .btn.danger{background:transparent;color:var(--err);border:1px solid var(--err)}
+  .btn.small{display:inline-block;width:auto;min-height:40px;padding:8px 14px;font-size:14px;margin:8px 8px 0 0}
+  .err{color:var(--err);font-size:15px;margin:10px 0 0;min-height:20px}
+  .note{font-size:14px;color:var(--mute);margin:8px 0 0;min-height:20px}
+
+  .edit-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--acc-soft);
+            color:var(--acc);border-radius:14px;padding:12px 14px;margin-bottom:16px;font-size:15px}
+  .edit-bar button{background:none;border:0;color:var(--acc);font-weight:bold;text-decoration:underline;min-height:40px;padding:0 4px;cursor:pointer;font-size:15px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .card .t{font-weight:bold;color:var(--acc)}
+  .card .m{color:var(--mute);font-size:14px;margin-top:4px}
+  .empty{color:var(--mute);text-align:center;padding:32px 12px;font-size:15px}
+  .howto{background:var(--acc-soft);color:var(--ink);border-radius:14px;padding:14px;margin:0 0 18px;font-size:15px}
+  .howto ol{margin:8px 0 0;padding-left:20px} .howto li{margin:4px 0}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:10px;margin:8px 0 18px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .stat .n{font-size:22px;font-weight:bold;color:var(--acc);line-height:1.2}
+  .stat .k{font-size:13px;color:var(--mute);margin-top:4px}
+
+  .wk{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+  .wk button{min-height:48px;min-width:48px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-size:20px;cursor:pointer}
+  .wk button:disabled{opacity:.4;cursor:default}
+  .wk .lab{font-weight:bold;text-align:center;font-size:16px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:16px}
+  .box .lbl{margin-bottom:4px}
+  .legend{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:13px;color:var(--mute);margin-top:6px}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  svg{display:block;width:100%;height:auto;color:var(--mute)}
+  svg text{fill:var(--mute);font-size:11px;font-family:Arial,Helvetica,sans-serif}
+
+  nav.bottom{position:fixed;left:50%;transform:translateX(-50%);width:100%;max-width:620px;bottom:0;background:var(--card);
+             border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding-bottom:env(safe-area-inset-bottom);z-index:9}
+  nav.bottom button{background:none;border:0;color:var(--mute);min-height:64px;font-size:12px;display:flex;flex-direction:column;
+                    align-items:center;justify-content:center;gap:2px;padding:4px 2px;min-width:0;cursor:pointer}
+  nav.bottom button .ic{font-size:20px;line-height:1}
+  nav.bottom button span.tx{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  nav.bottom button[aria-current=page]{color:var(--acc);font-weight:bold}
+  nav.bottom button[aria-current=page] .ic{transform:scale(1.1)}
+
+  .toast{position:fixed;left:50%;transform:translateX(-50%);width:calc(100% - 24px);max-width:596px;bottom:calc(92px + env(safe-area-inset-bottom));
+         background:var(--toast);color:var(--bg);border-radius:14px;padding:14px 16px;display:none;align-items:center;justify-content:space-between;gap:12px;z-index:20;font-size:15px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+  .toast.on{display:flex}
+  .toast button{background:none;border:0;color:inherit;font-weight:bold;font-size:15px;min-height:44px;padding:0 6px;text-decoration:underline;cursor:pointer;flex:none}
+
+  @media (max-width:340px){ nav.bottom button{font-size:10.5px} .seg button{font-size:15px} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
+</style>
+</head>
+<body>
+
+<header class="top"><div class="top-in">
+  <h1 id="title">Registrar</h1>
+  <div class="sub" id="subtitle">Logo após o episódio</div>
+</div></header>
+
+<main>
+
+<!-- ============ REGISTRAR ============ -->
+<section class="screen on" id="s-imp">
+  <div class="edit-bar" id="edit-bar" hidden><span id="edit-txt"></span><button type="button" id="edit-cancel">Cancelar edição</button></div>
+
+  <p class="hint">Escolha o que aconteceu e a intensidade. O restante é opcional. O formulário é salvo enquanto você preenche.</p>
+
+  <div class="group">
+    <span class="lbl">O que aconteceu? <span class="val" id="v-comp"></span></span>
+    <div class="chips" id="c-comp" role="group" aria-label="Comportamento"></div>
+  </div>
+
+  <div class="group">
+    <span class="lbl">Intensidade da vontade <span class="val" id="v-int">–</span></span>
+    <input type="range" min="0" max="10" value="5" id="r-int" aria-label="Intensidade da vontade, de 0 a 10">
+    <div class="scale"><span>0 · nenhuma</span><span>10 · irresistível</span></div>
+  </div>
+
+  <div class="group">
+    <span class="lbl">Você resistiu?</span>
+    <div class="seg" id="seg-res" role="group" aria-label="Resistiu">
+      <button type="button" data-v="Sim" aria-pressed="false">Resisti</button>
+      <button type="button" data-v="Não" aria-pressed="false">Não resisti</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <span class="lbl">Gatilho</span>
+    <div class="chips" id="c-gat" role="group" aria-label="Gatilho"></div>
+  </div>
+
+  <div class="group">
+    <label class="lbl" for="i-dh">Quando aconteceu</label>
+    <input type="datetime-local" id="i-dh">
+  </div>
+
+  <details>
+    <summary>Mais detalhes (opcional)</summary>
+
+    <div class="group"><span class="lbl">Tipo de impulso</span><div class="chips" id="c-tipo" role="group" aria-label="Tipo de impulso"></div></div>
+    <div class="group"><span class="lbl">Emoção antes</span><div class="chips" id="c-emo" role="group" aria-label="Emoção antes"></div></div>
+    <div class="group"><span class="lbl">Humor antes</span><div class="chips" id="c-humor-imp" role="group" aria-label="Humor antes"></div></div>
+
+    <div class="group">
+      <span class="lbl">Bem-estar antes <span class="val" id="v-bea">–</span></span>
+      <input type="range" min="0" max="10" value="5" id="r-bea" aria-label="Bem-estar antes, de 0 a 10">
+    </div>
+    <div class="group">
+      <span class="lbl">Bem-estar logo depois <span class="val" id="v-bed">–</span></span>
+      <input type="range" min="0" max="10" value="5" id="r-bed" aria-label="Bem-estar logo depois, de 0 a 10">
+    </div>
+    <div class="group">
+      <span class="lbl">Bem-estar 2 h depois <span class="val" id="v-bef2">–</span></span>
+      <input type="range" min="0" max="10" value="5" id="r-bef2" aria-label="Bem-estar duas horas depois, de 0 a 10">
+    </div>
+
+    <div class="group"><label class="toggle"><span>Foi mais do que eu queria</span><input type="checkbox" id="t-fora"></label></div>
+
+    <div class="grid2 group">
+      <div><label class="lbl" for="i-dur">Duração (minutos)</label><input type="number" min="0" max="1440" id="i-dur" inputmode="numeric"></div>
+      <div><label class="lbl" for="i-custo">Custo (R$)</label><input type="number" min="0" step="0.01" id="i-custo" inputmode="decimal"></div>
+    </div>
+
+    <div class="group"><span class="lbl">Consequência</span><div class="chips" id="c-cons" role="group" aria-label="Consequência"></div></div>
+    <div class="group"><label class="lbl" for="i-det">Detalhe (se escolheu "Outro")</label><input type="text" id="i-det"></div>
+    <div class="group"><label class="lbl" for="i-obs">Observação</label><textarea id="i-obs"></textarea></div>
+  </details>
+
+  <div class="err" id="e-imp" role="alert"></div>
+  <button class="btn" id="b-imp" type="button">Salvar impulso</button>
+  <div class="note" id="d-imp" aria-live="polite"></div>
+  <button class="btn ghost" id="b-imp-clear" type="button">Limpar formulário</button>
+</section>
+
+<!-- ============ DIA ============ -->
+<section class="screen" id="s-dia">
+  <p class="hint">Uma vez por dia, de manhã ou à noite. Campos em branco ficam vazios, não viram zero. Ao trocar a data, o formulário carrega o que já foi salvo naquele dia.</p>
+
+  <div class="group"><label class="lbl" for="d-data">Data</label><input type="date" id="d-data"></div>
+
+  <div class="grid2 group">
+    <div><label class="lbl" for="d-sono">Horas de sono</label><input type="number" min="0" max="24" step="0.5" id="d-sono" inputmode="decimal"></div>
+    <div><label class="lbl" for="d-acord">Acordares à noite</label><input type="number" min="0" max="99" id="d-acord" inputmode="numeric"></div>
+  </div>
+
+  <div class="group"><span class="lbl">Energia ao acordar <span class="val" id="v-ea">–</span></span>
+    <input type="range" min="0" max="10" value="5" id="r-ea" aria-label="Energia ao acordar, de 0 a 10"><div class="scale"><span>0 · baixa</span><span>10 · alta</span></div></div>
+  <div class="group"><span class="lbl">Energia à noite <span class="val" id="v-en">–</span></span>
+    <input type="range" min="0" max="10" value="5" id="r-en" aria-label="Energia à noite, de 0 a 10"><div class="scale"><span>0 · baixa</span><span>10 · alta</span></div></div>
+  <div class="group"><span class="lbl">Humor geral <span class="val" id="v-nh">–</span></span>
+    <input type="range" min="0" max="10" value="5" id="r-nh" aria-label="Humor geral, de 0 a 10"><div class="scale"><span>0 · muito baixo</span><span>10 · muito alto</span></div></div>
+
+  <div class="group"><span class="lbl">Como você descreveria o humor?</span><div class="chips" id="c-humor-dia" role="group" aria-label="Tipo de humor do dia"></div></div>
+
+  <div class="group">
+    <span class="lbl">Sinais que você notou hoje</span>
+    <label class="toggle"><span>Irritabilidade</span><input type="checkbox" id="t-irr"></label>
+    <label class="toggle"><span>Ideias aceleradas</span><input type="checkbox" id="t-ideias"></label>
+    <label class="toggle"><span>Gastos fora do normal</span><input type="checkbox" id="t-gastos"></label>
+    <label class="toggle"><span>Comi muito à noite</span><input type="checkbox" id="t-comp"></label>
+    <label class="toggle"><span>Uso de substância</span><input type="checkbox" id="t-subst"></label>
+  </div>
+
+  <div class="grid2 group">
+    <div><label class="lbl" for="d-tp">Tarefas planejadas</label><input type="number" min="0" id="d-tp" inputmode="numeric"></div>
+    <div><label class="lbl" for="d-tc">Tarefas concluídas</label><input type="number" min="0" id="d-tc" inputmode="numeric"></div>
+  </div>
+
+  <div class="group"><label class="lbl" for="d-obs">Observação</label><textarea id="d-obs"></textarea></div>
+
+  <div class="err" id="e-dia" role="alert"></div>
+  <button class="btn" id="b-dia" type="button">Salvar dia</button>
+</section>
+
+<!-- ============ SEMANA ============ -->
+<section class="screen" id="s-sem">
+  <div class="wk">
+    <button id="w-prev" type="button" aria-label="Semana anterior">‹</button>
+    <div class="lab" id="w-label"></div>
+    <button id="w-next" type="button" aria-label="Próxima semana">›</button>
+  </div>
+
+  <div class="stats" id="w-stats"></div>
+
+  <div class="box">
+    <div class="lbl">Energia e humor por dia (0 a 10)</div>
+    <svg id="ch-humor" viewBox="0 0 320 200" role="img" aria-label="Energia e humor por dia"></svg>
+    <div class="legend">
+      <span><i style="background:var(--c-energia)"></i>Energia</span>
+      <span><i style="background:var(--c-humor)"></i>Humor</span>
+    </div>
+  </div>
+
+  <div class="box">
+    <div class="lbl">Horas de sono por dia</div>
+    <svg id="ch-sono" viewBox="0 0 320 200" role="img" aria-label="Horas de sono por dia"></svg>
+    <div class="legend"><span><i style="background:var(--c-sono)"></i>Horas de sono</span><span>Linha tracejada: 5 h</span></div>
+  </div>
+
+  <div class="box">
+    <div class="lbl">Impulsos por dia</div>
+    <svg id="ch-imp" viewBox="0 0 320 200" role="img" aria-label="Impulsos por dia"></svg>
+    <div class="legend">
+      <span><i style="background:var(--c-resisti)"></i>Resisti</span>
+      <span><i style="background:var(--c-nao)"></i>Não resisti</span>
+    </div>
+  </div>
+
+  <h2>Tratamento nesta semana</h2>
+  <div id="w-trat"></div>
+</section>
+
+<!-- ============ HISTÓRICO ============ -->
+<section class="screen" id="s-hist">
+  <div class="chips" id="h-filtro" role="group" aria-label="Filtrar" style="margin-bottom:14px">
+    <button class="chip" type="button" data-f="todos" aria-pressed="true">Tudo</button>
+    <button class="chip" type="button" data-f="impulso" aria-pressed="false">Impulsos</button>
+    <button class="chip" type="button" data-f="dia" aria-pressed="false">Dias</button>
+    <button class="chip" type="button" data-f="trat" aria-pressed="false">Tratamento</button>
+  </div>
+  <div id="h-lista"></div>
+</section>
+
+<!-- ============ MAIS ============ -->
+<section class="screen" id="s-mais">
+  <div class="howto">
+    <strong>Como começar</strong>
+    <ol>
+      <li>Use <b>Registrar</b> logo após um episódio, ou quando sentir vontade.</li>
+      <li>Preencha o <b>Dia</b> uma vez por dia, com sono e humor.</li>
+      <li>Anote mudanças de medicação ou terapia em <b>Tratamento</b>, abaixo.</li>
+      <li>Ao final de cada semana, veja o resumo em <b>Semana</b> e exporte os dados em <b>Dados e cópias</b> para levar à consulta.</li>
+    </ol>
+  </div>
+
+  <h2>Tratamento</h2>
+  <p class="hint">Registre mudanças de medicação, terapia, rotina ou consultas, para comparar com as oscilações.</p>
+  <div class="group"><span class="lbl">Tipo</span><div class="chips" id="c-trat" role="group" aria-label="Tipo de tratamento"></div></div>
+  <div class="group"><label class="lbl" for="t-data">Data</label><input type="date" id="t-data"></div>
+  <div class="group"><label class="lbl" for="t-desc">Descrição</label><textarea id="t-desc"></textarea></div>
+  <div class="group"><label class="lbl" for="t-quem">Quem orientou</label><input type="text" id="t-quem"></div>
+  <div class="err" id="e-trat" role="alert"></div>
+  <button class="btn" id="b-trat" type="button">Salvar tratamento</button>
+
+  <h2 style="margin-top:30px">Dados e cópias</h2>
+  <p class="hint">Os dados ficam só neste navegador e não são enviados a nenhum servidor. Exporte com frequência e guarde uma cópia fora do celular.</p>
+  <button class="btn" id="x-imp" type="button">Baixar impulsos (CSV)</button>
+  <button class="btn ghost" id="x-dia" type="button">Baixar dias (CSV)</button>
+  <button class="btn ghost" id="x-trat" type="button">Baixar tratamento (CSV)</button>
+  <button class="btn ghost" id="x-json" type="button">Cópia completa (JSON)</button>
+  <label class="btn ghost" for="x-restore">Restaurar cópia (JSON)</label>
+  <input type="file" accept="application/json,.json" id="x-restore" hidden>
+  <button class="btn danger" id="x-wipe" type="button" style="margin-top:18px">Apagar todos os dados</button>
+
+  <h2 style="margin-top:30px">Sobre</h2>
+  <p class="hint">Este app organiza dados para você levar ao profissional de saúde. Ele não faz diagnóstico nem dá recomendações. Em crise, procure atendimento imediato. CVV: 188, 24 horas.</p>
+</section>
+
+</main>
+
+<nav class="bottom" aria-label="Navegação principal">
+  <button type="button" data-go="imp" aria-current="page"><span class="ic">＋</span><span class="tx">Registrar</span></button>
+  <button type="button" data-go="dia"><span class="ic">☾</span><span class="tx">Dia</span></button>
+  <button type="button" data-go="sem"><span class="ic">▤</span><span class="tx">Semana</span></button>
+  <button type="button" data-go="hist"><span class="ic">≡</span><span class="tx">Histórico</span></button>
+  <button type="button" data-go="mais"><span class="ic">⋯</span><span class="tx">Mais</span></button>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-msg"></span><button id="toast-btn" type="button">Desfazer</button></div>
+
+<script>
+
+/* ================= Cadastros ================= */
+const CAD = {
+  comp:["Sexo / encontros","Aplicativos de relacionamento","Pornografia","Masturbação","Comida","Compras","Álcool","Substância (outra)","Tela / abas / multitarefa","Procrastinação","Outro"],
+  gat:["Tarefa pendente","Procrastinação","Frustração comigo","Tédio","Ansiedade","Conflito / relação","Solidão","Cansaço","Sono ruim","Fome","Finanças","Oportunidade disponível","Não identifiquei","Outro"],
+  emo:["Ansioso","Entediado","Culpado","Envergonhado","Eufórico","Irritado","Triste","Frustrado","Agitado","Calmo","Aliviado","Solitário","Outro"],
+  tipo:["Antecipação (querer mais que consumir)","Validação / ser desejado","Alívio de desconforto","Busca de estímulo","Fuga de tarefa","Fuga de emoção","Sem objeto claro","Outro"],
+  humor:["Estável","Animado","Eufórico","Irritado","Baixo / deprimido","Ansioso","Agitado","Apático","Misto (extremos ao mesmo tempo)","Outro"],
+  cons:["Nenhuma","Dinheiro gasto","Comida em excesso","Encontro cancelado / adiado","Tarefa adiada","Sono prejudicado","Outra"],
+  trat:["Início de medicação","Troca de medicação","Ajuste de dose","Suspensão de medicação","Consulta / avaliação","Mudança de rotina","Mudança de terapia / grupo","Outro"]
+};
+const DOW = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+
+/* ================= Estado ================= */
+const KEY = "registro_v2", DKEY = "registro_v2_rascunho";
+let DB = load();
+function emptyDB(){ return {impulsos:[], dias:[], tratamento:[]}; }
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem(KEY));
+    if(d && Array.isArray(d.impulsos) && Array.isArray(d.dias) && Array.isArray(d.tratamento)) return d;
+  }catch(e){}
+  return emptyDB();
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(DB)); }
+  catch(e){ toast("Não foi possível salvar: o armazenamento do navegador está cheio."); }
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+/* ================= Utilidades ================= */
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,"0");
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseYmd = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const nowLocal = () => { const d = new Date(); return `${ymd(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const fmtBR = s => { const [y,m,d] = s.split("-"); return `${d}/${m}/${y}`; };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const notEmpty = v => v !== null && v !== undefined && v !== "" && !Number.isNaN(Number(v));
+const avg = arr => { const v = arr.filter(notEmpty).map(Number); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
+const fmtNum = (n, d=1) => n === null ? "–" : n.toFixed(d).replace(".", ",");
+
+/* Escolha única por botões (chips) */
+function chips(el, opts){
+  let val = null;
+  el.innerHTML = opts.map(o => `<button type="button" class="chip" aria-pressed="false" data-v="${esc(o)}">${esc(o)}</button>`).join("");
+  el.addEventListener("click", e => {
+    const b = e.target.closest(".chip"); if(!b || !el.contains(b)) return;
+    val = (val === b.dataset.v) ? null : b.dataset.v;
+    el.querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === val)));
+    el.dispatchEvent(new Event("chg"));
+  });
+  return {
+    get: () => val,
+    set(v){ val = v ?? null; el.querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === val))); },
+  };
+}
+/* Escolha Sim/Não por botões grandes */
+function seg(el){
+  let val = null;
+  el.addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    val = b.dataset.v;
+    el.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === val)));
+    el.dispatchEvent(new Event("chg"));
+  });
+  return {
+    get: () => val,
+    set(v){ val = v ?? null; el.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === val))); },
+  };
+}
+/* Slider que começa "não preenchido": só vira valor depois de tocado */
+function slider(id, out){
+  const r = $(id), o = $(out); let touched = false;
+  const show = () => { o.textContent = touched ? r.value : "–"; };
+  r.addEventListener("input", () => { touched = true; show(); r.dispatchEvent(new Event("chg", {bubbles:true})); });
+  show();
+  return {
+    get: () => touched ? Number(r.value) : null,
+    set(v){ touched = v !== null && v !== undefined; r.value = touched ? v : 5; show(); },
+  };
+}
+/* Liga um evento "chg" em um conjunto de elementos */
+function onChg(ids, fn){ ids.forEach(id => $(id).addEventListener("chg", fn)); }
+function onInp(ids, fn){ ids.forEach(id => $(id).addEventListener("input", fn)); }
+
+/* ================= Registrar impulso ================= */
+const cComp = chips($("c-comp"), CAD.comp);
+const cGat  = chips($("c-gat"), CAD.gat);
+const cTipo = chips($("c-tipo"), CAD.tipo);
+const cEmo  = chips($("c-emo"), CAD.emo);
+const cHumI = chips($("c-humor-imp"), CAD.humor);
+const cCons = chips($("c-cons"), CAD.cons);
+const sRes  = seg($("seg-res"));
+const rInt  = slider("r-int","v-int"), rBea = slider("r-bea","v-bea"), rBed = slider("r-bed","v-bed"), rBef2 = slider("r-bef2","v-bef2");
+
+let editingId = null;      // id do impulso em edição, ou null
+let draftTimer = null;
+
+function currentComp(){ $("v-comp").textContent = cComp.get() ? "· " + cComp.get() : ""; }
+$("c-comp").addEventListener("chg", () => { currentComp(); saveDraft(); });
+onChg(["c-gat","c-tipo","c-emo","c-humor-imp","c-cons","seg-res"], saveDraft);
+onInp(["i-dh","i-dur","i-custo","i-det","i-obs","r-int","r-bea","r-bed","r-bef2"], saveDraft);
+$("t-fora").addEventListener("change", saveDraft);
+$("i-dh").value = nowLocal();
+
+function impFormData(){
+  return {
+    dh: $("i-dh").value, comp: cComp.get(), gat: cGat.get(), res: sRes.get(), int: rInt.get(),
+    tipo: cTipo.get(), emo: cEmo.get(), humor: cHumI.get(), bea: rBea.get(), bed: rBed.get(), bef2: rBef2.get(),
+    fora: $("t-fora").checked, dur: $("i-dur").value, cons: cCons.get(), custo: $("i-custo").value,
+    det: $("i-det").value, obs: $("i-obs").value
+  };
+}
+function setImpFormData(d){
+  $("i-dh").value = d.dh || nowLocal();
+  cComp.set(d.comp); cGat.set(d.gat); sRes.set(d.res); currentComp();
+  rInt.set(d.int ?? null); cTipo.set(d.tipo); cEmo.set(d.emo); cHumI.set(d.humor);
+  rBea.set(d.bea ?? null); rBed.set(d.bed ?? null); rBef2.set(d.bef2 ?? null);
+  $("t-fora").checked = !!d.fora; $("i-dur").value = d.dur ?? ""; cCons.set(d.cons);
+  $("i-custo").value = d.custo ?? ""; $("i-det").value = d.det ?? ""; $("i-obs").value = d.obs ?? "";
+}
+function hasContent(d){
+  return !!(d.comp || d.gat || d.res || d.int !== null || d.tipo || d.emo || d.humor || d.bea !== null ||
+            d.bed !== null || d.bef2 !== null || d.fora || d.dur || d.cons || d.custo || d.det || d.obs);
+}
+/* Autosalvar rascunho: não sobrescreve enquanto estiver editando um registro existente */
+function saveDraft(){
+  if(editingId) return;
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => {
+    const d = impFormData();
+    if(hasContent(d)){ localStorage.setItem(DKEY, JSON.stringify(d)); $("d-imp").textContent = "Rascunho salvo automaticamente."; }
+    else { localStorage.removeItem(DKEY); $("d-imp").textContent = ""; }
+  }, 350);
+}
+function resetImp(){
+  clearTimeout(draftTimer);
+  stopEdit(false);
+  setImpFormData({}); $("i-dh").value = nowLocal();
+  $("e-imp").textContent = ""; $("d-imp").textContent = ""; localStorage.removeItem(DKEY);
+}
+$("b-imp-clear").onclick = () => { if(confirm("Limpar o formulário? O que não foi salvo será perdido.")) resetImp(); };
+
+function startEdit(id){
+  const r = DB.impulsos.find(x => x.id === id); if(!r) return;
+  editingId = id; clearTimeout(draftTimer);
+  setImpFormData({
+    dh: r.data + "T" + r.hora, comp: r.comportamento, gat: r.gatilho, res: r.resistiu, int: r.intensidade_antes,
+    tipo: r.tipo_impulso, emo: r.emocao_antes, humor: r.humor_antes, bea: r.bemestar_antes, bed: r.bemestar_depois,
+    bef2: r.bemestar_2h, fora: r.saiu_do_controle === "Sim", dur: r.duracao_min, cons: r.consequencia,
+    custo: r.custo, det: r.detalhe, obs: r.observacao
+  });
+  $("edit-txt").textContent = `Editando impulso de ${fmtBR(r.data)} às ${r.hora}`;
+  $("edit-bar").hidden = false; $("b-imp").textContent = "Atualizar impulso";
+  go("imp");
+}
+function stopEdit(goBack){
+  editingId = null; $("edit-bar").hidden = true; $("b-imp").textContent = "Salvar impulso";
+  if(goBack) { setImpFormData({}); $("i-dh").value = nowLocal(); }
+}
+$("edit-cancel").onclick = () => { resetImp(); };
+
+$("b-imp").onclick = () => {
+  const f = impFormData();
+  $("e-imp").textContent = "";
+  if(!f.dh) return $("e-imp").textContent = "Informe quando aconteceu.";
+  if(!f.comp) return $("e-imp").textContent = "Escolha o que aconteceu.";
+  if(f.int === null) return $("e-imp").textContent = "Marque a intensidade da vontade.";
+  if(f.res === null) return $("e-imp").textContent = "Diga se você resistiu ou não.";
+  if(!f.gat) return $("e-imp").textContent = "Escolha o gatilho, ou 'Não identifiquei'.";
+
+  const base = {
+    data: f.dh.slice(0,10), hora: f.dh.slice(11,16), tipo_impulso: f.tipo || "", comportamento: f.comp,
+    detalhe: f.det, gatilho: f.gat, emocao_antes: f.emo || "", humor_antes: f.humor || "",
+    intensidade_antes: f.int, bemestar_antes: f.bea, resistiu: f.res === "Sim" ? "Sim" : "Não",
+    saiu_do_controle: f.fora ? "Sim" : "Não", bemestar_depois: f.bed, bemestar_2h: f.bef2,
+    duracao_min: f.dur, consequencia: f.cons || "", custo: f.custo, observacao: f.obs
+  };
+
+  if(editingId){
+    const idx = DB.impulsos.findIndex(x => x.id === editingId);
+    const antes = DB.impulsos[idx];
+    DB.impulsos[idx] = {...antes, ...base, editado_em: new Date().toISOString()};
+    save(); const idEd = editingId;
+    resetImp();
+    toast("Impulso atualizado.", () => { const i = DB.impulsos.findIndex(x => x.id === idEd); if(i>=0) DB.impulsos[i] = antes; save(); renderHist(); renderWeek(); });
+    return;
+  }
+
+  const rec = {id: uid(), criado_em: new Date().toISOString(), ...base};
+  DB.impulsos.push(rec); save();
+  resetImp();
+  toast("Impulso salvo.", () => { DB.impulsos = DB.impulsos.filter(r => r.id !== rec.id); save(); renderHist(); renderWeek(); });
+};
+
+/* ================= Registro do dia ================= */
+const cHumD = chips($("c-humor-dia"), CAD.humor);
+const rEa = slider("r-ea","v-ea"), rEn = slider("r-en","v-en"), rNh = slider("r-nh","v-nh");
+$("d-data").value = ymd(new Date());
+
+function numOrNull(v){ return v === "" || v === null ? null : Number(v); }
+function resetDia(dataVal){
+  $("d-data").value = dataVal || ymd(new Date());
+  const ex = DB.dias.find(d => d.data === $("d-data").value);
+  $("d-sono").value = ex?.horas_sono ?? ""; $("d-acord").value = ex?.acordares ?? "";
+  rEa.set(ex?.energia_manha ?? null); rEn.set(ex?.energia_noite ?? null); rNh.set(ex?.nivel_humor ?? null);
+  cHumD.set(ex?.humor_dia || null);
+  $("t-irr").checked = ex?.irritabilidade === "Sim"; $("t-ideias").checked = ex?.ideias_aceleradas === "Sim";
+  $("t-gastos").checked = ex?.gastos_incomuns === "Sim"; $("t-comp").checked = ex?.compulsao_noturna === "Sim";
+  $("t-subst").checked = ex?.uso_substancia === "Sim";
+  $("d-tp").value = ex?.tarefas_planejadas ?? ""; $("d-tc").value = ex?.tarefas_concluidas ?? "";
+  $("d-obs").value = ex?.observacao ?? ""; $("e-dia").textContent = "";
+}
+$("d-data").addEventListener("change", () => resetDia($("d-data").value));
+$("b-dia").onclick = () => {
+  const data = $("d-data").value;
+  $("e-dia").textContent = "";
+  if(!data) return $("e-dia").textContent = "Informe a data.";
+  const rec = {
+    id: uid(), criado_em: new Date().toISOString(), data,
+    horas_sono: numOrNull($("d-sono").value), acordares: numOrNull($("d-acord").value),
+    energia_manha: rEa.get(), energia_noite: rEn.get(), nivel_humor: rNh.get(), humor_dia: cHumD.get() || "",
+    irritabilidade: $("t-irr").checked ? "Sim" : "Não", ideias_aceleradas: $("t-ideias").checked ? "Sim" : "Não",
+    gastos_incomuns: $("t-gastos").checked ? "Sim" : "Não", compulsao_noturna: $("t-comp").checked ? "Sim" : "Não",
+    uso_substancia: $("t-subst").checked ? "Sim" : "Não",
+    tarefas_planejadas: numOrNull($("d-tp").value), tarefas_concluidas: numOrNull($("d-tc").value),
+    observacao: $("d-obs").value
+  };
+  const antes = DB.dias.find(d => d.data === data);
+  DB.dias = DB.dias.filter(d => d.data !== data); DB.dias.push(rec); save();
+  toast(antes ? "Dia atualizado." : "Dia salvo.", () => {
+    DB.dias = DB.dias.filter(d => d.id !== rec.id); if(antes) DB.dias.push(antes); save(); renderHist(); renderWeek();
+  });
+};
+
+/* ================= Tratamento ================= */
+const cTratSel = chips($("c-trat"), CAD.trat);
+$("t-data").value = ymd(new Date());
+$("b-trat").onclick = () => {
+  $("e-trat").textContent = "";
+  if(!$("t-data").value) return $("e-trat").textContent = "Informe a data.";
+  const tipo = cTratSel.get();
+  if(!tipo) return $("e-trat").textContent = "Escolha o tipo.";
+  const rec = {id: uid(), criado_em: new Date().toISOString(), data: $("t-data").value, tipo,
+               descricao: $("t-desc").value, quem: $("t-quem").value};
+  DB.tratamento.push(rec); save();
+  cTratSel.set(null); $("t-desc").value = ""; $("t-quem").value = "";
+  toast("Tratamento salvo.", () => { DB.tratamento = DB.tratamento.filter(r => r.id !== rec.id); save(); renderHist(); renderWeek(); });
+};
+
+/* ================= Histórico ================= */
+let histFilter = "todos";
+document.querySelectorAll("#h-filtro .chip").forEach(b => b.onclick = () => {
+  histFilter = b.dataset.f;
+  document.querySelectorAll("#h-filtro .chip").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  renderHist();
+});
+function renderHist(){
+  const items = [];
+  if(histFilter === "todos" || histFilter === "impulso") DB.impulsos.forEach(r => items.push({k:"impulsos", t: r.data + "T" + r.hora, r}));
+  if(histFilter === "todos" || histFilter === "dia")     DB.dias.forEach(r => items.push({k:"dias", t: r.data + "T00:00", r}));
+  if(histFilter === "todos" || histFilter === "trat")    DB.tratamento.forEach(r => items.push({k:"tratamento", t: r.data + "T00:00", r}));
+  items.sort((a,b) => b.t.localeCompare(a.t));
+  if(!items.length){ $("h-lista").innerHTML = '<div class="empty">Nada registrado ainda.<br>Comece pelo botão Impulso, no rodapé.</div>'; return; }
+  $("h-lista").innerHTML = items.slice(0,150).map(({k,r}) => {
+    if(k === "impulsos") return `<div class="card"><div class="t">Impulso · ${fmtBR(r.data)} ${r.hora}</div>
+      <div class="m">${esc(r.comportamento)} · gatilho: ${esc(r.gatilho)}</div>
+      <div class="m">vontade ${r.intensidade_antes}/10 · ${r.resistiu === "Sim" ? "resisti" : "não resisti"}${r.saiu_do_controle === "Sim" ? " · foi mais do que queria" : ""}</div>
+      <button class="btn ghost small" data-act="edit-imp" data-id="${r.id}" type="button">Editar</button>
+      <button class="btn danger small" data-act="del" data-list="impulsos" data-id="${r.id}" type="button">Excluir</button></div>`;
+    if(k === "dias") return `<div class="card"><div class="t">Dia · ${fmtBR(r.data)}</div>
+      <div class="m">sono ${esc(r.horas_sono ?? "–")} h · energia ${r.energia_manha ?? "–"}/${r.energia_noite ?? "–"} · humor ${r.nivel_humor ?? "–"}/10</div>
+      <button class="btn ghost small" data-act="edit-dia" data-data="${r.data}" type="button">Editar</button>
+      <button class="btn danger small" data-act="del" data-list="dias" data-id="${r.id}" type="button">Excluir</button></div>`;
+    return `<div class="card"><div class="t">Tratamento · ${fmtBR(r.data)}</div>
+      <div class="m">${esc(r.tipo)}${r.quem ? " · " + esc(r.quem) : ""}</div>
+      ${r.descricao ? `<div class="m">${esc(r.descricao)}</div>` : ""}
+      <button class="btn danger small" data-act="del" data-list="tratamento" data-id="${r.id}" type="button">Excluir</button></div>`;
+  }).join("");
+}
+$("h-lista").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if(!b) return;
+  const act = b.dataset.act;
+  if(act === "edit-imp"){ startEdit(b.dataset.id); return; }
+  if(act === "edit-dia"){ resetDia(b.dataset.data); go("dia"); return; }
+  if(act === "del"){
+    if(!confirm("Excluir este registro?")) return;
+    const list = b.dataset.list, id = b.dataset.id;
+    const removed = DB[list].find(r => r.id === id);
+    DB[list] = DB[list].filter(r => r.id !== id); save(); renderHist(); renderWeek();
+    toast("Registro excluído.", () => { DB[list].push(removed); save(); renderHist(); renderWeek(); });
+  }
+});
+
+/* ================= Semana ================= */
+let weekOffset = 0;
+function weekStart(off){
+  const d = new Date(); d.setHours(0,0,0,0);
+  const day = (d.getDay() + 6) % 7;            // segunda = 0
+  d.setDate(d.getDate() - day + off*7); return d;
+}
+$("w-prev").onclick = () => { weekOffset--; renderWeek(); };
+$("w-next").onclick = () => { if(weekOffset < 0){ weekOffset++; renderWeek(); } };
+
+const SVG = {
+  W: 320, H: 200, L: 30, R: 10, T: 12, B: 26,
+  get pw(){ return this.W - this.L - this.R; }, get ph(){ return this.H - this.T - this.B; },
+  x: (i) => SVG.L + (i + 0.5) * (SVG.pw / 7),
+  y: (v, max) => SVG.T + SVG.ph - (v / max) * SVG.ph,
+};
+function gridAndLabels(days, max, ticks, labelFmt){
+  let s = ticks.map(t => {
+    const y = SVG.y(t, max);
+    return `<line x1="${SVG.L}" x2="${SVG.W-SVG.R}" y1="${y}" y2="${y}" stroke="currentColor" stroke-opacity=".18"/>
+            <text x="${SVG.L-6}" y="${y+4}" text-anchor="end">${labelFmt(t)}</text>`;
+  }).join("");
+  s += days.map((d,i) => `<text x="${SVG.x(i)}" y="${SVG.H-8}" text-anchor="middle">${DOW[parseYmd(d).getDay()]}</text>`).join("");
+  return s;
+}
+function polyRuns(points, color){
+  let out = "", run = [];
+  const flush = () => { if(run.length > 1) out += `<polyline fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" points="${run.map(p=>p.join(",")).join(" ")}"/>`; run.forEach(p => out += `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${color}"/>`); run = []; };
+  points.forEach(p => p ? run.push(p) : flush()); flush();
+  return out;
+}
+
+function renderWeek(){
+  const start = weekStart(weekOffset), end = new Date(start); end.setDate(end.getDate()+6);
+  $("w-label").textContent = `${pad(start.getDate())}/${pad(start.getMonth()+1)} a ${pad(end.getDate())}/${pad(end.getMonth()+1)}`;
+  $("w-next").disabled = weekOffset >= 0;
+  const days = [...Array(7)].map((_,i) => { const d = new Date(start); d.setDate(d.getDate()+i); return ymd(d); });
+  const imps = DB.impulsos.filter(r => days.includes(r.data));
+  const dias = DB.dias.filter(r => days.includes(r.data));
+  const res = imps.filter(r => r.resistiu === "Sim").length;
+  const fora = imps.filter(r => r.saiu_do_controle === "Sim").length;
+  const sonoCurto = dias.filter(r => notEmpty(r.horas_sono) && Number(r.horas_sono) <= 5).length;
+  const muitosSinais = dias.filter(d => ["irritabilidade","ideias_aceleradas","gastos_incomuns","compulsao_noturna"].filter(k => d[k] === "Sim").length >= 2).length;
+  const tp = dias.reduce((a,r)=>a+(Number(r.tarefas_planejadas)||0),0), tc = dias.reduce((a,r)=>a+(Number(r.tarefas_concluidas)||0),0);
+
+  const stats = [
+    [imps.length, "impulsos registrados"],
+    [imps.length ? Math.round(res/imps.length*100)+"%" : "–", "resistidos"],
+    [fora, "foram mais do que queria"],
+    [fmtNum(avg(dias.map(d=>d.horas_sono))) + (avg(dias.map(d=>d.horas_sono)) === null ? "" : " h"), "sono médio"],
+    [fmtNum(avg(dias.map(d=>d.energia_manha))), "energia ao acordar (média)"],
+    [fmtNum(avg(dias.map(d=>d.nivel_humor))), "humor médio"],
+    [sonoCurto, "dias com 5 h ou menos de sono"],
+    [muitosSinais, "dias com 2 ou mais sinais"],
+    [tp ? Math.round(tc/tp*100)+"%" : "–", "tarefas concluídas"],
+    [`${dias.length}/7`, "dias preenchidos"]
+  ];
+  $("w-stats").innerHTML = stats.map(([n,k]) => `<div class="stat"><div class="n">${n}</div><div class="k">${k}</div></div>`).join("");
+
+  /* Gráfico 1: energia e humor (0-10) */
+  const ticks10 = [0,5,10];
+  let s1 = gridAndLabels(days, 10, ticks10, v => v);
+  const serie = key => days.map((d) => { const r = dias.find(x => x.data === d); return notEmpty(r?.[key]) ? [SVG.x(days.indexOf(d)), SVG.y(Number(r[key]), 10)] : null; });
+  s1 += polyRuns(serie("energia_manha"), getCss("--c-energia"));
+  s1 += polyRuns(serie("nivel_humor"), getCss("--c-humor"));
+  $("ch-humor").innerHTML = s1;
+
+  /* Gráfico 2: sono em horas (0-12) com referência de 5 h */
+  const maxH = 12;
+  let s2 = gridAndLabels(days, maxH, [0,4,8,12], v => v + "h");
+  const yRef = SVG.y(5, maxH);
+  s2 += `<line x1="${SVG.L}" x2="${SVG.W-SVG.R}" y1="${yRef}" y2="${yRef}" stroke="currentColor" stroke-dasharray="4 4" stroke-opacity=".6"/>`;
+  days.forEach((d,i) => {
+    const r = dias.find(x => x.data === d);
+    if(!notEmpty(r?.horas_sono)) return;
+    const h = Math.min(Number(r.horas_sono), maxH), bw = SVG.pw/7*0.5;
+    const y = SVG.y(h, maxH);
+    s2 += `<rect x="${SVG.x(i)-bw/2}" y="${y}" width="${bw}" height="${SVG.T+SVG.ph-y}" rx="3" fill="${getCss("--c-sono")}"/>`;
+  });
+  $("ch-sono").innerHTML = s2;
+
+  /* Gráfico 3: impulsos por dia, empilhados */
+  const maxN = Math.max(2, ...days.map(d => imps.filter(r=>r.data===d).length));
+  const ticksN = [0, Math.round(maxN/2), maxN];
+  let s3 = gridAndLabels(days, maxN, [...new Set(ticksN)], v => v);
+  days.forEach((d,i) => {
+    const di = imps.filter(r => r.data === d);
+    if(!di.length) return;
+    const r_ = di.filter(r => r.resistiu === "Sim").length, n_ = di.length - r_;
+    const bw = SVG.pw/7*0.5, x0 = SVG.x(i) - bw/2;
+    const hR = (r_/maxN)*SVG.ph, hN = (n_/maxN)*SVG.ph, base = SVG.T + SVG.ph;
+    if(r_) s3 += `<rect x="${x0}" y="${base-hR}" width="${bw}" height="${hR}" rx="3" fill="${getCss("--c-resisti")}"/>`;
+    if(n_) s3 += `<rect x="${x0}" y="${base-hR-hN}" width="${bw}" height="${hN}" rx="3" fill="${getCss("--c-nao")}"/>`;
+  });
+  $("ch-imp").innerHTML = s3;
+
+  /* Tratamento da semana */
+  const trats = DB.tratamento.filter(r => days.includes(r.data)).sort((a,b)=>a.data.localeCompare(b.data));
+  $("w-trat").innerHTML = trats.length
+    ? trats.map(r => `<div class="card"><div class="t">${fmtBR(r.data)} · ${esc(r.tipo)}</div>
+        <div class="m">${esc(r.descricao || "")}${r.quem ? (r.descricao ? " · " : "") + esc(r.quem) : ""}</div></div>`).join("")
+    : '<div class="empty">Nenhum tratamento registrado nesta semana.</div>';
+}
+function getCss(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#888"; }
+
+/* ================= Mais: exportação, restauração, apagar ================= */
+function csv(rows, cols){
+  const e = v => { v = String(v ?? "").replace(/"/g,'""'); return /[;"\r\n]/.test(v) ? `"${v}"` : v; };
+  return "\uFEFF" + [cols.map(c=>c[0]).join(";"), ...rows.map(r => cols.map(c => e(r[c[1]])).join(";"))].join("\r\n");
+}
+function download(name, text, type="text/csv;charset=utf-8"){
+  const url = URL.createObjectURL(new Blob([text], {type}));
+  const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+const dateStamp = () => ymd(new Date());
+$("x-imp").onclick = () => download(`impulsos_${dateStamp()}.csv`, csv(DB.impulsos, [["Data","data"],["Hora","hora"],["Duração (min)","duracao_min"],["Tipo de impulso","tipo_impulso"],["Comportamento","comportamento"],["Detalhe","detalhe"],["Gatilho","gatilho"],["Emoção antes","emocao_antes"],["Humor antes","humor_antes"],["Intensidade antes","intensidade_antes"],["Bem-estar antes","bemestar_antes"],["Resistiu","resistiu"],["Saiu do controle","saiu_do_controle"],["Bem-estar depois","bemestar_depois"],["Bem-estar 2h depois","bemestar_2h"],["Consequência","consequencia"],["Custo (R$)","custo"],["Observação","observacao"]]));
+$("x-dia").onclick = () => download(`dias_${dateStamp()}.csv`, csv(DB.dias, [["Data","data"],["Horas de sono","horas_sono"],["Acordares","acordares"],["Energia manhã","energia_manha"],["Energia noite","energia_noite"],["Humor do dia","humor_dia"],["Nível de humor","nivel_humor"],["Irritabilidade","irritabilidade"],["Ideias aceleradas","ideias_aceleradas"],["Gastos incomuns","gastos_incomuns"],["Compulsão à noite","compulsao_noturna"],["Uso de substância","uso_substancia"],["Tarefas planejadas","tarefas_planejadas"],["Tarefas concluídas","tarefas_concluidas"],["Observação","observacao"]]));
+$("x-trat").onclick = () => download(`tratamento_${dateStamp()}.csv`, csv(DB.tratamento, [["Data","data"],["Tipo","tipo"],["Descrição","descricao"],["Quem orientou","quem"]]));
+$("x-json").onclick = () => download(`copia_registro_${dateStamp()}.json`, JSON.stringify(DB, null, 2), "application/json;charset=utf-8");
+
+$("x-restore").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+  try{
+    const d = JSON.parse(await f.text());
+    if(!Array.isArray(d.impulsos) || !Array.isArray(d.dias) || !Array.isArray(d.tratamento)) throw new Error("formato");
+    let added = 0;
+    ["impulsos","dias","tratamento"].forEach(k => {
+      const ids = new Set(DB[k].map(r => r.id));
+      d[k].forEach(r => { if(r && r.id && !ids.has(r.id)) { DB[k].push(r); added++; } });
+    });
+    save(); renderHist(); renderWeek();
+    toast(added ? `Restauração concluída: ${added} registro(s) novo(s).` : "Nada novo para restaurar.");
+  }catch(err){ toast("Arquivo inválido. Use uma cópia JSON deste app."); }
+};
+
+$("x-wipe").onclick = () => {
+  const w = prompt('Isto apaga todos os registros deste navegador. Para confirmar, digite APAGAR:');
+  if(w !== "APAGAR") return;
+  const antes = DB; DB = emptyDB(); save(); localStorage.removeItem(DKEY); resetImp(); resetDia(); renderHist(); renderWeek();
+  toast("Dados apagados.", () => { DB = antes; save(); renderHist(); renderWeek(); });
+};
+
+/* ================= Navegação e feedback ================= */
+const TITLES = {
+  imp:["Registrar","Logo após o episódio"],
+  dia:["Registro do dia","Uma vez por dia"],
+  sem:["Semana","Visão geral dos seus registros"],
+  hist:["Histórico","Seus registros"],
+  mais:["Mais","Tratamento e dados"]
+};
+function go(name){
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === "s-" + name));
+  document.querySelectorAll("nav.bottom button").forEach(b => {
+    if(b.dataset.go === name) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
+  });
+  $("title").textContent = editingId && name === "imp" ? "Editar registro" : TITLES[name][0];
+  $("subtitle").textContent = TITLES[name][1];
+  if(name === "sem") renderWeek();
+  if(name === "hist") renderHist();
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll("nav.bottom button").forEach(b => b.onclick = () => go(b.dataset.go));
+
+let toastTimer = null, toastUndo = null;
+function toast(msg, undo){
+  $("toast-msg").textContent = msg; toastUndo = undo || null;
+  $("toast-btn").style.display = undo ? "" : "none";
+  $("toast").classList.add("on");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $("toast").classList.remove("on"), 5000);
+}
+$("toast-btn").onclick = () => {
+  if(toastUndo){ toastUndo(); toastUndo = null; }
+  $("toast").classList.remove("on");
+};
+
+/* ================= Inicialização ================= */
+(function init(){
+  resetDia();
+  go("imp");
+  try{
+    const d = JSON.parse(localStorage.getItem(DKEY));
+    if(d && hasContent(d)){ setImpFormData(d); $("d-imp").textContent = "Rascunho recuperado."; }
+  }catch(e){}
+  if(!DB.impulsos.length && !DB.dias.length && !DB.tratamento.length) { /* primeiro uso: nada a mostrar */ }
+})();
+</script>
+</body>
+</html>
